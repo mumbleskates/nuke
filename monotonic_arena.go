@@ -54,7 +54,7 @@ func (s *monotonicBuffer) reset(release bool) {
 }
 
 func (s *monotonicBuffer) zeroOutBuffer() {
-	b := unsafe.Slice((*byte)(s.ptr), s.size)
+	b := unsafe.Slice(s.ptr, s.size)
 
 	// This piece of code will be translated into a runtime.memclrNoHeapPointers
 	// invocation by the compiler, which is an assembler optimized implementation.
