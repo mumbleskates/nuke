@@ -44,6 +44,10 @@ func newInSafeArena[T any](arena *safeArena) *T {
 	case *uintptr:
 		size, align = ptrSize, ptrAlignment
 		group = &arena.podSlabs
+	case *complex64, *complex128:
+		tType := reflect.TypeFor[T]()
+		size, align = tType.Size(), uintptr(tType.Align())
+		group = &arena.podSlabs
 	default:
 		tType := reflect.TypeFor[T]()
 		group = arena.typedSlabs[tType]
@@ -89,7 +93,9 @@ func (sg *safeSlabGroup) getFast(size uintptr) unsafe.Pointer {
 		// TODO(widders): try getting from each one; if it seems full swap it
 		//  back and increment firstWithFreeSpace
 	}
-	// TODO(widders): make another slab
+	// TODO(widders): make another slab. actually this will happen outside, bc
+	//  we don't know how to create the memory for a slab without knowing its
+	//  type.
 	panic("todo")
 }
 
@@ -98,6 +104,8 @@ func (sg *safeSlabGroup) get(size uintptr, alignment uintptr) unsafe.Pointer {
 }
 
 func (sg *safeSlabGroup) reset() {
+	// TODO(widders): deal with high water marks, deleting slabs if they were
+	//  not close to being reached this time
 	panic("todo")
 }
 
