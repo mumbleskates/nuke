@@ -110,6 +110,9 @@ func newInSafeArena[T any](arena *safeArena, n int) []T {
 	if tLayout.isPOD {
 		ptr = (*T)(arena.podSlabs.newPODSlice(tLayout, n))
 	} else {
+		// When inserting typed data, we have to manage growing the slab groups
+		// directly to ensure that the slabs will be allocated with the correct
+		// type information.
 		group := arena.typedSlabs[tLayout.ty]
 		if group == nil {
 			newGroup := makeSafeSlabGroup[T](arena.initialTypedSlots)
@@ -129,7 +132,7 @@ func newInSafeArena[T any](arena *safeArena, n int) []T {
 	return unsafe.Slice(ptr, n)
 }
 
-// Makes space for any type in the arena, with a user-declared guarantee that
+// Make space for any type in the arena, with a user-declared guarantee that
 // the type contains no pointers.
 func newPODInSafeArena[T any](arena *safeArena, n int) []T {
 	ptr := (*T)(arena.podSlabs.newPODSlice(getPODLayout[T](), n))
@@ -138,7 +141,9 @@ func newPODInSafeArena[T any](arena *safeArena, n int) []T {
 
 // TODO(widders): Sprintf
 
-func (sa *safeArena) reset() {
+// Reset the arena, erasing all data written to it. This will gradually
+// shrink the arena's owned memory if much of its capacity was unused.
+func (sa *safeArena) Reset() {
 	sa.podSlabs.reset()
 	for _, slab := range sa.typedSlabs {
 		slab.reset()
@@ -223,10 +228,13 @@ func (sg *safeSlabGroup) newPODSlice(tLayout layout, n int) unsafe.Pointer {
 func (sg *safeSlabGroup) reset() {
 	var highWaterMarkBytes int
 	for i := range sg.slabs {
+		// Sum up the bytes that were used in the slabs
 		highWaterMarkBytes += sg.slabs[i].reset()
 	}
-	// Gradually shrink the slab group if it has been going mostly unused
-	for len(sg.slabs) > 1 && highWaterMarkBytes*3 < sg.totalBytes {
+	// Gradually shrink the slab group if it has been going mostly unused,
+	// removing only the last slab (which is likely to be the largest) but
+	// always retaining the initial slab.
+	if len(sg.slabs) > 1 && highWaterMarkBytes*3 < sg.totalBytes {
 		lastSlab := &sg.slabs[len(sg.slabs)-1]
 		// Dereference the last slab and remove it from the group
 		sg.totalBytes -= lastSlab.size
