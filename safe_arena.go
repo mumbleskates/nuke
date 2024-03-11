@@ -25,16 +25,24 @@ type safeArena struct {
 	initialTypedSlots int
 }
 
-func makeSafeArena() *safeArena {
-	return makeSafeArenaWithOptions(4096, 64)
+type Options struct {
+	InitialBytes      int
+	InitialTypedSlots int
 }
 
-func makeSafeArenaWithOptions(initialBytes int, initialTypedSlots int) *safeArena {
+func MakeArena() Arena {
+	return MakeArenaWithOptions(Options{
+		InitialBytes:      4096,
+		InitialTypedSlots: 64,
+	})
+}
+
+func MakeArenaWithOptions(options Options) Arena {
 	return &safeArena{
 		podSlabs: safeSlabGroup{
-			slabs: []safeSlab{makeSafeSlab[byte](initialBytes)},
+			slabs: []safeSlab{makeSafeSlab[byte](options.InitialBytes)},
 		},
-		initialTypedSlots: initialTypedSlots,
+		initialTypedSlots: options.InitialTypedSlots,
 	}
 }
 
