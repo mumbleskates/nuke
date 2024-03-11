@@ -46,10 +46,14 @@ type layout struct {
 	ty    reflect.Type
 }
 
+// Gets basic layout information for T. This includes its size and alignment,
+// whether it is guaranteed to be a POD type (Plain Old Data with no pointers),
+// and will also include the reflected type of T if it may be needed.
 func getLayout[T any]() layout {
 	var size, align uintptr
 	var mayContainPointer bool
 	var tType reflect.Type
+
 	switch any((*T)(nil)).(type) {
 	case *byte, *int8, *bool:
 		size, align = 1, 1
@@ -82,6 +86,7 @@ func getLayout[T any]() layout {
 			mayContainPointer = true
 		}
 	}
+
 	return layout{
 		size:  size,
 		align: align,
@@ -127,8 +132,7 @@ func newInSafeArena[T any](arena *safeArena, n int) []T {
 // Makes space for any type in the arena, with a user-declared guarantee that
 // the type contains no pointers.
 func newPODInSafeArena[T any](arena *safeArena, n int) []T {
-	tLayout := getLayout[T]()
-	ptr := (*T)(arena.podSlabs.newPODSlice(tLayout, n))
+	ptr := (*T)(arena.podSlabs.newPODSlice(getPODLayout[T](), n))
 	return unsafe.Slice(ptr, n)
 }
 
