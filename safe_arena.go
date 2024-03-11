@@ -32,7 +32,7 @@ func makeSafeArena() *safeArena {
 func makeSafeArenaWithOptions(initialBytes int, initialTypedSlots int) *safeArena {
 	return &safeArena{
 		podSlabs: safeSlabGroup{
-			bufs: []safeSlab{makeSafeSlab[byte](initialBytes)},
+			slabs: []safeSlab{makeSafeSlab[byte](initialBytes)},
 		},
 		initialTypedSlots: initialTypedSlots,
 	}
@@ -142,7 +142,7 @@ func (sa *safeArena) reset() {
 }
 
 type safeSlabGroup struct {
-	bufs []safeSlab
+	slabs []safeSlab
 	// Total number of allocated bytes in this slab group
 	totalBytes int
 	// Index of the first slab that hasn't become full
@@ -152,22 +152,22 @@ type safeSlabGroup struct {
 func makeSafeSlabGroup[T any](initialSlots int) safeSlabGroup {
 	var t T
 	return safeSlabGroup{
-		bufs:               []safeSlab{makeSafeSlab[T](initialSlots)},
+		slabs:              []safeSlab{makeSafeSlab[T](initialSlots)},
 		totalBytes:         initialSlots * int(unsafe.Sizeof(t)),
 		firstWithFreeSpace: 0,
 	}
 }
 
 func (sg *safeSlabGroup) getFast(size uintptr) unsafe.Pointer {
-	for i := sg.firstWithFreeSpace; i < len(sg.bufs); i++ {
-		ptr := sg.bufs[i].getFast(size)
+	for i := sg.firstWithFreeSpace; i < len(sg.slabs); i++ {
+		ptr := sg.slabs[i].getFast(size)
 		if ptr != nil {
 			return ptr
 		}
-		if sg.bufs[i].seemsFull() {
+		if sg.slabs[i].seemsFull() {
 			// Swap this "seems full now" slab to the front of the range of
 			// slabs with free space
-			sg.bufs[sg.firstWithFreeSpace], sg.bufs[i] = sg.bufs[i], sg.bufs[sg.firstWithFreeSpace]
+			sg.slabs[sg.firstWithFreeSpace], sg.slabs[i] = sg.slabs[i], sg.slabs[sg.firstWithFreeSpace]
 			// Don't try to allocate in that slab any more, it seems full
 			sg.firstWithFreeSpace++
 		}
@@ -176,15 +176,15 @@ func (sg *safeSlabGroup) getFast(size uintptr) unsafe.Pointer {
 }
 
 func (sg *safeSlabGroup) get(size uintptr, align uintptr) unsafe.Pointer {
-	for i := sg.firstWithFreeSpace; i < len(sg.bufs); i++ {
-		ptr := sg.bufs[i].get(size, align)
+	for i := sg.firstWithFreeSpace; i < len(sg.slabs); i++ {
+		ptr := sg.slabs[i].get(size, align)
 		if ptr != nil {
 			return ptr
 		}
-		if sg.bufs[i].seemsFull() {
+		if sg.slabs[i].seemsFull() {
 			// Swap this "seems full now" slab to the front of the range of
 			// slabs that still have free space
-			sg.bufs[sg.firstWithFreeSpace], sg.bufs[i] = sg.bufs[i], sg.bufs[sg.firstWithFreeSpace]
+			sg.slabs[sg.firstWithFreeSpace], sg.slabs[i] = sg.slabs[i], sg.slabs[sg.firstWithFreeSpace]
 			// Then bump the counter so we don't try to allocate in that slab
 			// any more, since it seems full
 			sg.firstWithFreeSpace++
@@ -217,9 +217,18 @@ func (sg *safeSlabGroup) newPODSlice(tLayout layout, n int) unsafe.Pointer {
 }
 
 func (sg *safeSlabGroup) reset() {
-	// TODO(widders): deal with high water marks, deleting slabs if they were
-	//  not close to being reached this time
-	panic("todo")
+	var highWaterMarkBytes int
+	for i := range sg.slabs {
+		highWaterMarkBytes += sg.slabs[i].reset()
+	}
+	// Gradually shrink the slab group if it has been going mostly unused
+	for len(sg.slabs) > 1 && highWaterMarkBytes*3 < sg.totalBytes {
+		lastSlab := &sg.slabs[len(sg.slabs)-1]
+		// Dereference the last slab and remove it from the group
+		sg.totalBytes -= lastSlab.size
+		*lastSlab = safeSlab{}
+		sg.slabs = sg.slabs[:len(sg.slabs)-1]
+	}
 }
 
 func growSlabGroup[T any](sg *safeSlabGroup, tSize uintptr, newSlots int) {
@@ -227,7 +236,7 @@ func growSlabGroup[T any](sg *safeSlabGroup, tSize uintptr, newSlots int) {
 	if currentTotalSlots > newSlots {
 		newSlots = currentTotalSlots
 	}
-	sg.bufs = append(sg.bufs, makeSafeSlab[T](newSlots))
+	sg.slabs = append(sg.slabs, makeSafeSlab[T](newSlots))
 	sg.totalBytes += newSlots * int(tSize)
 }
 
@@ -276,14 +285,17 @@ func (s *safeSlab) get(size uintptr, alignment uintptr) unsafe.Pointer {
 	return newPointer
 }
 
-func (s *safeSlab) reset() {
+// Clear and reset the slab, returning how many bytes were used.
+func (s *safeSlab) reset() (usedBytes int) {
 	// Zero all the bytes we have handed out from the buffer so far
 	b := unsafe.Slice(s.buf, s.offset)
 	for i := range b {
 		b[i] = 0
 	}
+	usedBytes = int(s.offset)
 	// Reset the offset to the beginning of the buffer again
 	s.offset = 0
+	return
 }
 
 func (s *safeSlab) seemsFull() bool {
