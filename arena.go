@@ -22,14 +22,14 @@ type Arena interface {
 // new function.
 func New[T any](arena Arena) *T {
 	if arena != nil {
-		return &Make[T](arena, 1)[0]
+		return (*T)(arena.getTyped(reflect.TypeFor[T](), 1))
 	}
 	return new(T)
 }
 
 func NewPOD[T any](arena Arena) *T {
 	if arena != nil {
-		return &MakePOD[T](arena, 1)[0]
+		return (*T)(arena.getPOD(reflect.TypeFor[T](), 1))
 	}
 	return new(T)
 }
