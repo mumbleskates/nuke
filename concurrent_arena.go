@@ -3,6 +3,7 @@
 package nuke
 
 import (
+	"reflect"
 	"sync"
 	"unsafe"
 )
@@ -15,20 +16,26 @@ type concurrentArena struct {
 // NewConcurrentArena returns an arena that is safe to be accessed concurrently
 // from multiple goroutines.
 func NewConcurrentArena(a Arena) Arena {
+	if _, isAlready := a.(*concurrentArena); isAlready {
+		return a
+	}
 	return &concurrentArena{a: a}
 }
 
-// Alloc satisfies the Arena interface.
-func (a *concurrentArena) Alloc(size, alignment uintptr) unsafe.Pointer {
+func (a *concurrentArena) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 	a.mtx.Lock()
-	ptr := a.a.Alloc(size, alignment)
-	a.mtx.Unlock()
-	return ptr
+	defer a.mtx.Unlock()
+	return a.a.getTyped(ty, n)
 }
 
-// Reset satisfies the Arena interface.
-func (a *concurrentArena) Reset(release bool) {
+func (a *concurrentArena) getPOD(ty reflect.Type, n int) unsafe.Pointer {
 	a.mtx.Lock()
-	a.a.Reset(release)
-	a.mtx.Unlock()
+	defer a.mtx.Unlock()
+	return a.a.getPOD(ty, n)
+}
+
+func (a *concurrentArena) Reset() {
+	a.mtx.Lock()
+	defer a.mtx.Unlock()
+	a.a.Reset()
 }
