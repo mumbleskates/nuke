@@ -231,7 +231,7 @@ func makeSafeSlab(ty reflect.Type, slots int) safeSlab {
 	// owned as an unsafe.Pointer to the first element of the slice, and size is
 	// the number of bytes in that slice.
 	return safeSlab{
-		buf:    reflect.MakeSlice(ty, slots, slots).UnsafePointer(),
+		buf:    reflect.MakeSlice(reflect.SliceOf(ty), slots, slots).UnsafePointer(),
 		size:   slots * int(ty.Size()),
 		offset: 0,
 	}
