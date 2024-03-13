@@ -198,7 +198,7 @@ func (sg *safeSlabGroup) reset() {
 	// Gradually shrink the slab group if it has been going mostly unused,
 	// removing only the last slab (which is likely to be the largest) but
 	// always retaining the initial slab.
-	if len(sg.slabs) > 1 && highWaterMarkBytes*3 < sg.totalBytes {
+	if len(sg.slabs) > 1 && highWaterMarkBytes*4 < sg.totalBytes {
 		lastSlab := &sg.slabs[len(sg.slabs)-1]
 		// Dereference the last slab and remove it from the group
 		sg.totalBytes -= lastSlab.size
