@@ -267,7 +267,8 @@ func (s *safeSlab) getWithAlignment(size uintptr, align uintptr) unsafe.Pointer 
 // Clear and reset the slab, returning how many bytes were used.
 func (s *safeSlab) reset() (usedBytes int) {
 	// Zero all the bytes we have handed out from the buffer so far
-	b := unsafe.Slice(s.buf, s.offset)
+	buf := (*byte)(s.buf)
+	b := unsafe.Slice(buf, s.offset)
 	for i := range b {
 		b[i] = 0
 	}
