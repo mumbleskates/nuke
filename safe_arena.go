@@ -154,7 +154,7 @@ func (sg *safeSlabGroup) getPOD(ty reflect.Type, n int) unsafe.Pointer {
 
 func (sg *safeSlabGroup) getWithAlignment(size uintptr, align uintptr) unsafe.Pointer {
 	for i := sg.firstWithFreeSpace; i < len(sg.slabs); i++ {
-		ptr := sg.slabs[i].get(size, align)
+		ptr := sg.slabs[i].getWithAlignment(size, align)
 		if ptr != nil {
 			return ptr
 		}
@@ -174,7 +174,7 @@ func (sg *safeSlabGroup) getWithAlignment(size uintptr, align uintptr) unsafe.Po
 // values and values in slabs that are allocated as []T and only ever contain T.
 func (sg *safeSlabGroup) getAlwaysAligned(size uintptr) unsafe.Pointer {
 	for i := sg.firstWithFreeSpace; i < len(sg.slabs); i++ {
-		ptr := sg.slabs[i].getFast(size)
+		ptr := sg.slabs[i].getAlwaysAligned(size)
 		if ptr != nil {
 			return ptr
 		}
@@ -237,7 +237,7 @@ func makeSafeSlab(ty reflect.Type, slots int) safeSlab {
 	}
 }
 
-func (s *safeSlab) getFast(size uintptr) unsafe.Pointer {
+func (s *safeSlab) getAlwaysAligned(size uintptr) unsafe.Pointer {
 	if s.offset+size > uintptr(s.size) {
 		return nil // not enough space
 	}
@@ -246,7 +246,7 @@ func (s *safeSlab) getFast(size uintptr) unsafe.Pointer {
 	return newPointer
 }
 
-func (s *safeSlab) get(size uintptr, align uintptr) unsafe.Pointer {
+func (s *safeSlab) getWithAlignment(size uintptr, align uintptr) unsafe.Pointer {
 	newOffset := s.offset + size
 	var realign uintptr = 0
 	if align != 1 {
