@@ -38,20 +38,20 @@ func NewPOD[T any](arena Arena) *T {
 // using the provided Arena for memory allocation.
 // If the arena is non-nil, it returns a slice with memory allocated from the arena.
 // Otherwise, it returns a slice using Go's built-in make function.
-func Make[T any](arena Arena, n int) []T {
+func Make[T any](arena Arena, n int, cap int) []T {
 	if arena != nil {
 		ptr := (*T)(arena.getTyped(reflect.TypeFor[T](), n))
-		return unsafe.Slice(ptr, n)
+		return unsafe.Slice(ptr, cap)[:n]
 	}
-	return make([]T, n)
+	return make([]T, n, cap)
 }
 
 // Make space for any type in the arena, with a user-declared guarantee that
 // the type contains no pointers.
-func MakePOD[T any](arena Arena, n int) []T {
+func MakePOD[T any](arena Arena, n int, cap int) []T {
 	if arena != nil {
 		ptr := (*T)(arena.getPOD(reflect.TypeFor[T](), n))
-		return unsafe.Slice(ptr, n)
+		return unsafe.Slice(ptr, cap)[:n]
 	}
-	return make([]T, n)
+	return make([]T, n, cap)
 }
