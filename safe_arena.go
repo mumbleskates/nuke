@@ -43,6 +43,8 @@ func isPOD(ty reflect.Type) bool {
 		reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
 		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128:
 		return true
+	case reflect.Array:
+		return isPOD(ty.Elem())
 	default:
 		return false
 	}
