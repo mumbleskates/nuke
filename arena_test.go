@@ -136,6 +136,7 @@ func isMonotonicArenaPtr(a Arena, ptr unsafe.Pointer) bool {
 func BenchmarkAllocators(b *testing.B) {
 	monoArena := NewMonotonicArena(2*1024*1024, 32) // 2Mb buffer size (64Mb max size)
 	threadedArena := NewConcurrentArena(NewMonotonicArena(2*1024*1024, 32))
+	typesafeArena := NewSafeArena()
 	for _, testCase := range []struct {
 		name  string
 		alloc allocator[int]
@@ -143,6 +144,7 @@ func BenchmarkAllocators(b *testing.B) {
 		{"runtime", newRuntimeAllocator[int]()},
 		{"monotonicArena", newArenaAllocator[int](monoArena)},
 		{"concurrentArena(monotonicArena)", newArenaAllocator[int](threadedArena)},
+		{"safeArena", newArenaAllocator[int](typesafeArena)},
 	} {
 		b.Run(testCase.name, func(b *testing.B) {
 			benchmarkNewObject(b, testCase.alloc)

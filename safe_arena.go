@@ -17,14 +17,14 @@ type Options struct {
 	InitialTypedSlots int
 }
 
-func MakeSafeArena() Arena {
-	return MakeSafeArenaWithOptions(Options{
+func NewSafeArena() Arena {
+	return NewSafeArenaWithOptions(Options{
 		InitialBytes:      4096,
 		InitialTypedSlots: 64,
 	})
 }
 
-func MakeSafeArenaWithOptions(options Options) Arena {
+func NewSafeArenaWithOptions(options Options) Arena {
 	return &safeArena{
 		podSlabs: safeSlabGroup{
 			slabs: []safeSlab{makeSafeSlab(byteType, options.InitialBytes)},
