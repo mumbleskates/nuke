@@ -5,7 +5,8 @@ import (
 	"reflect"
 )
 
-// Fast check for whether a type is pointer-free.
+// Fast check for whether a type is pointer-free. Assumes that any struct type
+// may contain pointers for expediency.
 func isPOD(ty reflect.Type) bool {
 	switch ty.Kind() {
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16,
@@ -20,7 +21,7 @@ func isPOD(ty reflect.Type) bool {
 	}
 }
 
-// Performs full introspection of a type, asserting that it contains no pointers
+// Perform full introspection of a type, asserting that it contains no pointers
 // anywhere inside it. Any type that passes this assert is completely safe to
 // hide from the garbage collector.
 func AssertPlainOldData[T any]() {
@@ -30,7 +31,7 @@ func AssertPlainOldData[T any]() {
 	}
 }
 
-// Asserts that a type is pointerless, returning a non-empty string describing
+// Assert that a type is pointerless, returning a non-empty string describing
 // the issue if it is does contain pointers.
 //
 // This function recurses, but does not need to protect itself from infinite
