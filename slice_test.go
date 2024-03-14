@@ -3,6 +3,7 @@
 package nuke
 
 import (
+	"reflect"
 	"testing"
 	"unsafe"
 
@@ -13,11 +14,15 @@ import (
 // It simply allocates memory using Go's built-in make function.
 type mockArena struct{}
 
-func (m *mockArena) Alloc(size, _ uintptr) unsafe.Pointer {
-	return unsafe.Pointer(&make([]byte, size)[0])
+func (m *mockArena) getTyped(ty reflect.Type, n int) unsafe.Pointer {
+	return unsafe.Pointer(&make([]byte, int(ty.Size())*n)[0])
 }
 
-func (m *mockArena) Reset(release bool) {
+func (m *mockArena) getPOD(ty reflect.Type, n int) unsafe.Pointer {
+	return unsafe.Pointer(&make([]byte, int(ty.Size())*n)[0])
+}
+
+func (m *mockArena) Reset() {
 	// Implementation can be empty for this test
 }
 
@@ -25,7 +30,7 @@ func (m *mockArena) Reset(release bool) {
 func TestSliceAppendWithArena(t *testing.T) {
 	a := &mockArena{}
 
-	s := MakeSlice[int](a, 3, 3)
+	s := Make[int](a, 3, 3)
 	s[0] = 1
 	s[1] = 2
 	s[2] = 3

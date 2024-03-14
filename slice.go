@@ -33,7 +33,7 @@ func growSlice[T any](a Arena, s []T, dataLen int) []T {
 	if newCap == cap(s) {
 		return s
 	}
-	s2 := MakeSlice[T](a, len(s), newCap)
+	s2 := Make[T](a, len(s), newCap)
 	copy(s2, s)
 	return s2
 }
