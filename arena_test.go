@@ -210,8 +210,8 @@ func newArenaAllocator[T any](a Arena) allocator[T] {
 	return &arenaAllocator[T]{a: a}
 }
 
-func (r *arenaAllocator[T]) new() *T                    { return New[T](r.a) }
-func (r *arenaAllocator[T]) makeSlice(len, cap int) []T { return Make[T](r.a, len, cap) }
+func (r *arenaAllocator[T]) new() *T                    { return NewPOD[T](r.a) }
+func (r *arenaAllocator[T]) makeSlice(len, cap int) []T { return MakePOD[T](r.a, len, cap) }
 
 func (r *arenaAllocator[T]) reset() {
 	r.a.Reset()
