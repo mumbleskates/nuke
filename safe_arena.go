@@ -33,23 +33,6 @@ func MakeSafeArenaWithOptions(options Options) Arena {
 	}
 }
 
-// Gets basic layout information for T. This includes its size and alignment,
-// whether it is guaranteed to be a POD type (Plain Old Data with no pointers),
-// and will also include the reflected type of T if it may be needed.
-func isPOD(ty reflect.Type) bool {
-	switch ty.Kind() {
-	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16,
-		reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
-		reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128:
-		return true
-	case reflect.Array:
-		return isPOD(ty.Elem())
-	default:
-		return false
-	}
-}
-
 // TODO(widders): Sprintf
 
 // An arena type that can retain strong pointers from data that is stored inside

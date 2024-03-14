@@ -13,7 +13,7 @@ import (
 )
 
 func TestMonotonicArenaAllocateObject(t *testing.T) {
-	arena := NewMonotonicArena(8182, 1) // 8KB
+	arena := NewMonotonicArena(8192, 1) // 8KB
 
 	var refs []*int
 	for i := 0; i < 1_000; i++ {
@@ -39,6 +39,24 @@ func TestMonotonicArenaSendObjectToHeap(t *testing.T) {
 	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[int](arena))))
 }
 
+func TestMonotonicArenaSendNonPODObjectToHeap(t *testing.T) {
+	arena := NewMonotonicArena(1024, 1)
+
+	require.True(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[uint64](arena))))
+	require.True(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[bool](arena))))
+	require.True(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[float64](arena))))
+	require.True(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[complex128](arena))))
+
+	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[string](arena))))
+	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[chan int](arena))))
+	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[*int](arena))))
+	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[[]byte](arena))))
+	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[map[int]int](arena))))
+	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[func()](arena))))
+	// Structs are not introspected
+	require.False(t, isMonotonicArenaPtr(arena, unsafe.Pointer(New[struct{ x int }](arena))))
+}
+
 func TestMonotonicArenaReset(t *testing.T) {
 	arena := NewMonotonicArena(1024, 1).(*monotonicArena) // one monotonic buffer of 1KB
 
@@ -52,7 +70,7 @@ func TestMonotonicArenaReset(t *testing.T) {
 	})
 
 	// Reset the arena (without releasing memory)
-	arena.Reset(false)
+	arena.Reset()
 	runtime.GC()
 
 	select {
@@ -63,11 +81,17 @@ func TestMonotonicArenaReset(t *testing.T) {
 		break
 	}
 
-	// Do another allocation
+	// Add this extra allocation here to prevent the compiler from marking arena reference as unused
+	// before invoking runtime.GC().
 	_ = New[int](arena)
 
+	discardingArena := NewMonotonicArenaWithDiscard(1024, 1).(*monotonicArena) // one monotonic buffer of 1KB
+
+	// Do another allocation
+	_ = New[int](discardingArena)
+
 	// Reset the arena (releasing memory)
-	arena.Reset(true)
+	discardingArena.Reset()
 	runtime.GC()
 
 	select {
@@ -80,7 +104,7 @@ func TestMonotonicArenaReset(t *testing.T) {
 
 	// Add this extra allocation here to prevent the compiler from marking arena reference as unused
 	// before invoking runtime.GC().
-	_ = New[int](arena)
+	_ = New[int](discardingArena)
 }
 
 func TestMonotonicArenaMultipleTypes(t *testing.T) {
@@ -134,7 +158,7 @@ func BenchmarkMonotonicArenaNewObject(b *testing.B) {
 				for j := 0; j < objectCount; j++ {
 					_ = a.new()
 				}
-				a.(*arenaAllocator[int]).a.Reset(false)
+				a.(*arenaAllocator[int]).a.Reset()
 			}
 		})
 	}
@@ -151,7 +175,7 @@ func BenchmarkConcurrentMonotonicArenaNewObject(b *testing.B) {
 				for j := 0; j < objectCount; j++ {
 					_ = a.new()
 				}
-				a.(*arenaAllocator[int]).a.Reset(false)
+				a.(*arenaAllocator[int]).a.Reset()
 			}
 		})
 	}
@@ -182,7 +206,7 @@ func BenchmarkMonotonicArenaMakeSlice(b *testing.B) {
 				for j := 0; j < objectCount; j++ {
 					_ = a.makeSlice(0, 256)
 				}
-				a.(*arenaAllocator[int]).a.Reset(false)
+				a.(*arenaAllocator[int]).a.Reset()
 			}
 		})
 	}
@@ -199,7 +223,7 @@ func BenchmarkConcurrentMonotonicArenaMakeSlice(b *testing.B) {
 				for j := 0; j < objectCount; j++ {
 					_ = a.makeSlice(0, 256)
 				}
-				a.(*arenaAllocator[int]).a.Reset(false)
+				a.(*arenaAllocator[int]).a.Reset()
 			}
 		})
 	}
@@ -228,4 +252,4 @@ func newArenaAllocator[T any](a Arena) allocator[T] {
 }
 
 func (r *arenaAllocator[T]) new() *T                    { return New[T](r.a) }
-func (r *arenaAllocator[T]) makeSlice(len, cap int) []T { return MakeSlice[T](r.a, len, cap) }
+func (r *arenaAllocator[T]) makeSlice(len, cap int) []T { return Make[T](r.a, len, cap) }
