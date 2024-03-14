@@ -133,105 +133,60 @@ func isMonotonicArenaPtr(a Arena, ptr unsafe.Pointer) bool {
 	return false
 }
 
-func BenchmarkRuntimeNewObject(b *testing.B) {
-	a := newRuntimeAllocator[int]()
-	for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
-		b.Run(fmt.Sprintf("%d", objectCount), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				for j := 0; j < objectCount; j++ {
-					_ = a.new()
-				}
-			}
+func BenchmarkAllocators(b *testing.B) {
+	monoArena := NewMonotonicArena(2*1024*1024, 32) // 2Mb buffer size (64Mb max size)
+	threadedArena := NewConcurrentArena(NewMonotonicArena(2*1024*1024, 32))
+	for _, testCase := range []struct {
+		name  string
+		alloc allocator[int]
+	}{
+		{"runtime", newRuntimeAllocator[int]()},
+		{"monotonicArena", newArenaAllocator[int](monoArena)},
+		{"concurrentArena(monotonicArena)", newArenaAllocator[int](threadedArena)},
+	} {
+		b.Run(testCase.name, func(b *testing.B) {
+			benchmarkNewObject(b, testCase.alloc)
+			benchmarkMakeSlice(b, testCase.alloc)
 		})
 	}
 }
 
-func BenchmarkMonotonicArenaNewObject(b *testing.B) {
-	monotonicArena := NewMonotonicArena(2*1024*1024, 32) // 2Mb buffer size (64Mb max size)
-
-	a := newArenaAllocator[int](monotonicArena)
-	for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
-		b.Run(fmt.Sprintf("%d", objectCount), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				for j := 0; j < objectCount; j++ {
-					_ = a.new()
+func benchmarkNewObject[T any](b *testing.B, alloc allocator[T]) {
+	b.Run("new_object", func(b *testing.B) {
+		for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
+			b.Run(fmt.Sprint(objectCount), func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					for j := 0; j < objectCount; j++ {
+						_ = alloc.new()
+					}
+					alloc.reset()
 				}
-				a.(*arenaAllocator[int]).a.Reset()
-			}
-		})
-	}
+			})
+		}
+	})
 }
 
-func BenchmarkConcurrentMonotonicArenaNewObject(b *testing.B) {
-	monotonicArena := NewMonotonicArena(2*1024*1024, 32) // 2Mb buffer size (64Mb max size)
-
-	a := newArenaAllocator[int](NewConcurrentArena(monotonicArena))
-	for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
-		b.Run(fmt.Sprintf("%d", objectCount), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				for j := 0; j < objectCount; j++ {
-					_ = a.new()
+func benchmarkMakeSlice[T any](b *testing.B, alloc allocator[T]) {
+	b.Run("make_slice", func(b *testing.B) {
+		for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
+			b.Run(fmt.Sprint(objectCount), func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					for j := 0; j < objectCount; j++ {
+						_ = alloc.makeSlice(0, 256)
+					}
+					alloc.reset()
 				}
-				a.(*arenaAllocator[int]).a.Reset()
-			}
-		})
-	}
-}
-
-func BenchmarkRuntimeMakeSlice(b *testing.B) {
-	a := newRuntimeAllocator[int]()
-	for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
-		b.Run(fmt.Sprintf("%d", objectCount), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				for j := 0; j < objectCount; j++ {
-					_ = a.makeSlice(0, 256)
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkMonotonicArenaMakeSlice(b *testing.B) {
-	monotonicArena := NewMonotonicArena(2*1024*1024, 32) // 2Mb buffer size (64Mb max size)
-
-	a := newArenaAllocator[int](monotonicArena)
-	for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
-		b.Run(fmt.Sprintf("%d", objectCount), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				for j := 0; j < objectCount; j++ {
-					_ = a.makeSlice(0, 256)
-				}
-				a.(*arenaAllocator[int]).a.Reset()
-			}
-		})
-	}
-}
-
-func BenchmarkConcurrentMonotonicArenaMakeSlice(b *testing.B) {
-	monotonicArena := NewMonotonicArena(2*1024*1024, 32) // 2Mb buffer size (64Mb max size)
-
-	a := newArenaAllocator[int](NewConcurrentArena(monotonicArena))
-	for _, objectCount := range []int{100, 1_000, 10_000, 100_000} {
-		b.Run(fmt.Sprintf("%d", objectCount), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				for j := 0; j < objectCount; j++ {
-					_ = a.makeSlice(0, 256)
-				}
-				a.(*arenaAllocator[int]).a.Reset()
-			}
-		})
-	}
+			})
+		}
+	})
 }
 
 type allocator[T any] interface {
 	new() *T
 	makeSlice(len, cap int) []T
+	reset()
 }
 
 type runtimeAllocator[T any] struct{}
@@ -243,6 +198,8 @@ func newRuntimeAllocator[T any]() allocator[T] {
 func (r *runtimeAllocator[T]) new() *T                    { return new(T) }
 func (r *runtimeAllocator[T]) makeSlice(len, cap int) []T { return make([]T, len, cap) }
 
+func (r *runtimeAllocator[T]) reset() {}
+
 type arenaAllocator[T any] struct {
 	a Arena
 }
@@ -253,3 +210,7 @@ func newArenaAllocator[T any](a Arena) allocator[T] {
 
 func (r *arenaAllocator[T]) new() *T                    { return New[T](r.a) }
 func (r *arenaAllocator[T]) makeSlice(len, cap int) []T { return Make[T](r.a, len, cap) }
+
+func (r *arenaAllocator[T]) reset() {
+	r.a.Reset()
+}
