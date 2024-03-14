@@ -59,7 +59,7 @@ func (sa *safeArena) Reset() {
 
 func (sa *safeArena) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 	if isPOD(ty) {
-		return sa.podSlabs.getPOD(ty, n)
+		return sa.podSlabs.getPOD(ty.Size(), uintptr(ty.Align()), n)
 	} else {
 		// When inserting typed data, we have to manage growing the slab groups
 		// directly to ensure that the slabs will be allocated with the correct
@@ -74,8 +74,8 @@ func (sa *safeArena) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 	}
 }
 
-func (sa *safeArena) getPOD(ty reflect.Type, n int) unsafe.Pointer {
-	return sa.podSlabs.getPOD(ty, n)
+func (sa *safeArena) getPOD(size uintptr, align uintptr, n int) unsafe.Pointer {
+	return sa.podSlabs.getPOD(size, align, n)
 }
 
 type safeSlabGroup struct {
@@ -118,9 +118,8 @@ func (sg *safeSlabGroup) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 //
 // Only call this method on a POD slab group! It will allocate slabs as []byte,
 // and they will only be suitable for POD values.
-func (sg *safeSlabGroup) getPOD(ty reflect.Type, n int) unsafe.Pointer {
-	size, align := ty.Size(), ty.Align()
-	ptr := sg.getWithAlignment(size, uintptr(align))
+func (sg *safeSlabGroup) getPOD(size uintptr, align uintptr, n int) unsafe.Pointer {
+	ptr := sg.getWithAlignment(size, align)
 	if ptr == nil {
 		// When making new slabs for POD types, we need to make sure there is
 		// at least space for n+1 (unaligned) values of T in case the new
@@ -128,7 +127,7 @@ func (sg *safeSlabGroup) getPOD(ty reflect.Type, n int) unsafe.Pointer {
 		// being unable to fit the value in the new slab after correcting
 		// alignment.
 		sg.grow(byteType, (n+1)*int(size))
-		ptr = sg.getWithAlignment(size, uintptr(align))
+		ptr = sg.getWithAlignment(size, align)
 		if ptr == nil {
 			// This should never happen
 			panic("slab allocation failed!")

@@ -28,10 +28,10 @@ func (a *concurrentArena) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 	return a.a.getTyped(ty, n)
 }
 
-func (a *concurrentArena) getPOD(ty reflect.Type, n int) unsafe.Pointer {
+func (a *concurrentArena) getPOD(size uintptr, align uintptr, n int) unsafe.Pointer {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	return a.a.getPOD(ty, n)
+	return a.a.getPOD(size, align, n)
 }
 
 func (a *concurrentArena) Reset() {

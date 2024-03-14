@@ -18,8 +18,8 @@ func (m *mockArena) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 	return unsafe.Pointer(&make([]byte, int(ty.Size())*n)[0])
 }
 
-func (m *mockArena) getPOD(ty reflect.Type, n int) unsafe.Pointer {
-	return unsafe.Pointer(&make([]byte, int(ty.Size())*n)[0])
+func (m *mockArena) getPOD(size uintptr, _ uintptr, n int) unsafe.Pointer {
+	return unsafe.Pointer(&make([]byte, int(size)*n)[0])
 }
 
 func (m *mockArena) Reset() {

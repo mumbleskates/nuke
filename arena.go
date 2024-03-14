@@ -13,7 +13,7 @@ type Arena interface {
 	Reset()
 
 	getTyped(reflect.Type, int) unsafe.Pointer
-	getPOD(reflect.Type, int) unsafe.Pointer
+	getPOD(size uintptr, align uintptr, n int) unsafe.Pointer
 }
 
 // New allocates memory for a value of type T using the provided Arena.
@@ -29,7 +29,8 @@ func New[T any](arena Arena) *T {
 
 func NewPOD[T any](arena Arena) *T {
 	if arena != nil {
-		return (*T)(arena.getPOD(reflect.TypeFor[T](), 1))
+		var t T
+		return (*T)(arena.getPOD(unsafe.Sizeof(t), unsafe.Alignof(t), 1))
 	}
 	return new(T)
 }
@@ -50,7 +51,8 @@ func Make[T any](arena Arena, n int, cap int) []T {
 // the type contains no pointers.
 func MakePOD[T any](arena Arena, n int, cap int) []T {
 	if arena != nil {
-		ptr := (*T)(arena.getPOD(reflect.TypeFor[T](), n))
+		var t T
+		ptr := (*T)(arena.getPOD(unsafe.Sizeof(t), unsafe.Alignof(t), n))
 		return unsafe.Slice(ptr, cap)[:n]
 	}
 	return make([]T, n, cap)

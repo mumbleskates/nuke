@@ -96,10 +96,10 @@ func NewMonotonicArenaWithDiscard(bufferSize, bufferCount int) Arena {
 }
 
 // Alloc satisfies the Arena interface.
-func (a *monotonicArena) getPOD(ty reflect.Type, n int) unsafe.Pointer {
+func (a *monotonicArena) getPOD(size uintptr, align uintptr, n int) unsafe.Pointer {
 	// TODO: this degenerates as the buffers all fill up
 	for i := 0; i < len(a.buffers); i++ {
-		ptr, ok := a.buffers[i].alloc(ty.Size()*uintptr(n), uintptr(ty.Align()))
+		ptr, ok := a.buffers[i].alloc(size*uintptr(n), align)
 		if ok {
 			return ptr
 		}
@@ -109,7 +109,7 @@ func (a *monotonicArena) getPOD(ty reflect.Type, n int) unsafe.Pointer {
 
 func (a *monotonicArena) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 	if isPOD(ty) {
-		return a.getPOD(ty, n)
+		return a.getPOD(ty.Size(), uintptr(ty.Align()), n)
 	}
 	// Allocate non-POD data outside the arena
 	return reflect.MakeSlice(reflect.SliceOf(ty), n, n).UnsafePointer()
