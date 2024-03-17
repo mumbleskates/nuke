@@ -142,9 +142,12 @@ func BenchmarkAllocators(b *testing.B) {
 		alloc allocator[int]
 	}{
 		{"runtime", newRuntimeAllocator[int]()},
-		{"monotonicArena", newArenaAllocator[int](monoArena)},
-		{"concurrentArena(monotonicArena)", newArenaAllocator[int](threadedArena)},
-		{"safeArena", newArenaAllocator[int](typesafeArena)},
+		{"monotonicArena", newArenaPODAllocator[int](monoArena)},
+		{"concurrentArena(monotonicArena)", newArenaPODAllocator[int](threadedArena)},
+		{"safeArena", newArenaPODAllocator[int](typesafeArena)},
+		{"monotonicArena typechecked", newArenaTypedAllocator[int](monoArena)},
+		{"concurrentArena(monotonicArena) typechecked", newArenaTypedAllocator[int](threadedArena)},
+		{"safeArena typechecked", newArenaTypedAllocator[int](typesafeArena)},
 	} {
 		b.Run(testCase.name, func(b *testing.B) {
 			benchmarkNewObject(b, testCase.alloc)
@@ -202,17 +205,32 @@ func (r *runtimeAllocator[T]) makeSlice(len, cap int) []T { return make([]T, len
 
 func (r *runtimeAllocator[T]) reset() {}
 
-type arenaAllocator[T any] struct {
+type arenaPODAllocator[T any] struct {
 	a Arena
 }
 
-func newArenaAllocator[T any](a Arena) allocator[T] {
-	return &arenaAllocator[T]{a: a}
+func newArenaPODAllocator[T any](a Arena) allocator[T] {
+	return &arenaPODAllocator[T]{a: a}
 }
 
-func (r *arenaAllocator[T]) new() *T                    { return NewPOD[T](r.a) }
-func (r *arenaAllocator[T]) makeSlice(len, cap int) []T { return MakePOD[T](r.a, len, cap) }
+func (r *arenaPODAllocator[T]) new() *T                    { return NewPOD[T](r.a) }
+func (r *arenaPODAllocator[T]) makeSlice(len, cap int) []T { return MakePOD[T](r.a, len, cap) }
 
-func (r *arenaAllocator[T]) reset() {
+func (r *arenaPODAllocator[T]) reset() {
+	r.a.Reset()
+}
+
+type arenaTypedAllocator[T any] struct {
+	a Arena
+}
+
+func newArenaTypedAllocator[T any](a Arena) allocator[T] {
+	return &arenaTypedAllocator[T]{a: a}
+}
+
+func (r *arenaTypedAllocator[T]) new() *T                    { return New[T](r.a) }
+func (r *arenaTypedAllocator[T]) makeSlice(len, cap int) []T { return Make[T](r.a, len, cap) }
+
+func (r *arenaTypedAllocator[T]) reset() {
 	r.a.Reset()
 }
