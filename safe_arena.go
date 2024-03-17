@@ -177,6 +177,7 @@ func (sg *safeSlabGroup) reset() {
 		// Sum up the bytes that were used in the slabs
 		highWaterMarkBytes += sg.slabs[i].reset()
 	}
+	sg.firstWithFreeSpace = 0
 	// Gradually shrink the slab group if it has been going mostly unused,
 	// removing only the last slab (which is likely to be the largest) but
 	// always retaining the initial slab.
