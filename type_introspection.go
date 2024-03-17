@@ -39,9 +39,6 @@ func AssertPlainOldData[T any]() {
 // contain an infinite number of nested fields (and therefore become invalid)
 // must contain pointers.
 func assertPODImpl(ty reflect.Type) (problem string) {
-	if isPOD(ty) {
-		return
-	}
 	switch ty.Kind() {
 	case reflect.Slice, reflect.String, reflect.Interface, reflect.Chan,
 		reflect.Func, reflect.Map, reflect.Ptr, reflect.UnsafePointer:

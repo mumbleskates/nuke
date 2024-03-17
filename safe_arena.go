@@ -9,9 +9,6 @@ var (
 	byteType = reflect.TypeFor[byte]()
 )
 
-// TODO(widders): recursive assert check traversing a type with reflect to make
-//  sure it is POD for users to use
-
 type Options struct {
 	InitialBytes      int
 	InitialTypedSlots int
