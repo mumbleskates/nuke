@@ -20,19 +20,25 @@ type Arena interface {
 // If the arena is non-nil, it returns a  *T pointer with memory allocated from
 // the arena. If passed arena is nil, it allocates memory using Go's built-in
 // new function.
-func New[T any](arena Arena) *T {
+func New[T any](arena Arena) (res *T) {
 	if arena != nil {
-		return (*T)(arena.getTyped(reflect.TypeFor[T](), 1))
+		res = (*T)(arena.getTyped(reflect.TypeFor[T](), 1))
 	}
-	return new(T)
+	if res == nil {
+		return new(T)
+	}
+	return
 }
 
-func NewPOD[T any](arena Arena) *T {
+func NewPOD[T any](arena Arena) (res *T) {
 	if arena != nil {
 		var t T
-		return (*T)(arena.getPOD(unsafe.Sizeof(t), unsafe.Alignof(t)))
+		res = (*T)(arena.getPOD(unsafe.Sizeof(t), unsafe.Alignof(t)))
 	}
-	return new(T)
+	if res == nil {
+		return new(T)
+	}
+	return
 }
 
 // MakeSlice creates a slice of type T with a given length and capacity,
@@ -40,20 +46,26 @@ func NewPOD[T any](arena Arena) *T {
 // If the arena is non-nil, it returns a slice with memory allocated from the arena.
 // Otherwise, it returns a slice using Go's built-in make function.
 func Make[T any](arena Arena, length int, cap int) []T {
+	var ptr *T
 	if arena != nil {
-		ptr := (*T)(arena.getTyped(reflect.TypeFor[T](), cap))
-		return unsafe.Slice(ptr, cap)[:length]
+		ptr = (*T)(arena.getTyped(reflect.TypeFor[T](), cap))
 	}
-	return make([]T, length, cap)
+	if ptr == nil {
+		return make([]T, length, cap)
+	}
+	return unsafe.Slice(ptr, cap)[:length]
 }
 
 // Make space for any type in the arena, with a user-declared guarantee that
 // the type contains no pointers.
 func MakePOD[T any](arena Arena, length int, cap int) []T {
+	var ptr *T
 	if arena != nil {
 		var t T
-		ptr := (*T)(arena.getPOD(unsafe.Sizeof(t)*uintptr(cap), unsafe.Alignof(t)))
-		return unsafe.Slice(ptr, cap)[:length]
+		ptr = (*T)(arena.getPOD(unsafe.Sizeof(t)*uintptr(cap), unsafe.Alignof(t)))
 	}
-	return make([]T, length, cap)
+	if ptr == nil {
+		return make([]T, length, cap)
+	}
+	return unsafe.Slice(ptr, cap)[:length]
 }
