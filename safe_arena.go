@@ -99,7 +99,7 @@ func (sg *safeSlabGroup) getTyped(ty reflect.Type, n int) unsafe.Pointer {
 	ptr := sg.getAlwaysAligned(ty.Size() * uintptr(n))
 	if ptr == nil {
 		sg.grow(ty, n)
-		ptr = sg.getAlwaysAligned(ty.Size() * uintptr(n))
+		ptr = sg.slabs[len(sg.slabs)-1].getAlwaysAligned(ty.Size() * uintptr(n))
 		if ptr == nil {
 			// This should never happen
 			panic("slab allocation failed!")
@@ -125,7 +125,7 @@ func (sg *safeSlabGroup) getPOD(size uintptr, align uintptr) unsafe.Pointer {
 			growMinimum += align
 		}
 		sg.grow(byteType, int(growMinimum))
-		ptr = sg.getWithAlignment(size, align)
+		ptr = sg.slabs[len(sg.slabs)-1].getWithAlignment(size, align)
 		if ptr == nil {
 			// This should never happen
 			panic("slab allocation failed!")
