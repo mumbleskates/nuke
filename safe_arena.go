@@ -23,9 +23,7 @@ func NewSafeArena() Arena {
 
 func NewSafeArenaWithOptions(options Options) Arena {
 	return &safeArena{
-		podSlabs: safeSlabGroup{
-			slabs: []safeSlab{makeSafeSlab(byteType, options.InitialBytes)},
-		},
+		podSlabs:          makeSafeSlabGroup(byteType, options.InitialBytes),
 		initialTypedSlots: options.InitialTypedSlots,
 	}
 }
